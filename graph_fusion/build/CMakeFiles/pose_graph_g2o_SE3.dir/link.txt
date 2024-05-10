@@ -1,0 +1,1 @@
+/usr/bin/c++  -std=c++17 -O3 -DNDEBUG -rdynamic CMakeFiles/pose_graph_g2o_SE3.dir/pose_graph_g2o_SE3.cpp.o -o pose_graph_g2o_SE3  -lg2o_core -lg2o_stuff -lg2o_types_slam3d /usr/lib/x86_64-linux-gnu/libfmt.so.8.1.1 -Wl,--as-needed 
