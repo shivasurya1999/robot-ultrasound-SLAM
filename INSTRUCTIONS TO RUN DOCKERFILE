@@ -1,0 +1,155 @@
+INSTRUCTIONS TO RUN DOCKERFILE (AND THE REST OF THE PROCESS TOO)
+THE PROCESS IS FULLY AUTOMATED, WHICH MEANS THAT YOU CAN TAKE A BAGFILE STRAIGHT FROM THE LAB AND RUN THE FOLLOWING INSTRUCTIONS TO GET THE RESULTS AND ANALYZE THEM 
+
+In one terminal:
+
+cd fusionlab_files
+
+
+docker build -t myros:noetic-custom -f rosbagDockerfile.dockerfile .
+
+
+mkdir -p ~/fusionlab_files/data/bag1/rgb ~/fusionlab_files/data/bag1/depth
+
+
+###START FROM HERE IF YOU ALREADY HAVE THE DOCKER IMAGE####
+docker run -it --rm \
+  --name ros_bag_playback \
+  --network host \
+  -v ~/fusionlab_files/data/bag1:/fusionlab_files/data/bag1 \
+  -v ~/Documents/ElasticFusion \
+  -v ~/Documents/image_conv_ws:/image_conv_ws \
+  myros:noetic-custom
+  
+  
+roscore
+
+
+
+In another terminal on your host and attach to the running container:
+docker exec -it ros_bag_playback bash
+
+cd /fusionlab_files/data/bag1
+
+source /opt/ros/noetic/setup.bash
+
+rosbag play 2024-02-06-13-39-24.bag
+
+
+Open another terminal on your host and attach to the running container:
+source /opt/ros/noetic/setup.bash
+
+
+############FOR THE BELOW COMMANDS YOU CAN RUN SIMULTANEOUSLY BUT MAKE SURE TO ATTACH THE RUNNING CONTAINER IN ANY NEW TERMINAL AND SOURCE THE WORKSPACE BEFORE RUNNING ############
+
+#######RGB IMAGES######
+(for rgb images directly run the below)
+rosrun image_view image_saver image:=/camera/color/image _filename_format:=/fusionlab_files/data/bag1/rgb/frame%04i.png
+
+Change Ownership: After saving the images, change their ownership to your user. You need to do this from your host system, not inside the Docker container: 
+sudo chown ssuryalolla:ssuryalolla ~/fusionlab_files/data/bag1/rgb/* -R
+
+Backup the images saved because now we will navigate to the rgb folder and change their resolution to fit the ElasticFusion requirements:
+We don't need to execute the command below because I have changed the code to take the original image resolution 
+mogrify -resize 640x480! *.png
+
+#######DEPTH IMAGES######
+(for depth images change the file path as required in depth_image_saver.py and run the below)
+cd /image_conv_ws/src
+
+./depth_image_saver.py
+
+Change Ownership: After saving the images, change their ownership to your user. You need to do this from your host system, not inside the Docker container: 
+sudo chown ssuryalolla:ssuryalolla ~/fusionlab_files/data/bag1/depth/* -R
+
+Backup the images saved because now we will navigate to the rgb folder and change their resolution to fit the ElasticFusion requirements:
+mogrify -resize 640x480! *.png
+
+#######GROUNDTRUTH TEXT FILE######
+(for saving groudtruth.txt change the file path as required in save_groundtruth.py in the cam_to_ee_data and write_ground_truth lines)
+cd /image_conv_ws/src
+ls /fusionlab_files/data/bag1/cam_to_link7_quat.yaml
+./save_grountruth.py
+
+
+#######SAVE TIMESTAMPS TO A TEXT FILE#####
+Navigate to image_conv_ws/src
+./ts_saver.py
+
+
+#######US IMAGES############
+rosrun image_view image_saver image:=/ultrasound _filename_format:=/fusionlab_files/data/bag15/us/frame%04i.png
+
+
+######US Timestamps#########
+./us_ts_saver.py
+
+#######THE NEXT STEPS ARE INDEPENDENT OF DOCKER########## 
+
+##############################To generate associations.txt####################
+TO SAVE rgb.txt and depth.txt files:
+cd Documents/image_conv_ws/src 
+
+./gen_img_txt_files.py
+
+
+ssuryalolla@ssuryalolla-ROG-Zephyrus-M16-GU603ZM-GU603ZM:~/Documents/png_to_klg$ python3 associate.py ~/fusionlab_files/data/bag1/depth.txt ~/fusionlab_files/data/bag1/rgb.txt > ~/fusionlab_files/data/bag1/associations.txt
+sed -i 's| /home/ssuryalolla/fusionlab_files/data/bag1/| |g' ~/fusionlab_files/data/bag1/associations.txt
+
+
+##################CONVERT THE DATA WE HAVE TO KLG FILE FORMAT################# 
+ssuryalolla@ssuryalolla-ROG-Zephyrus-M16-GU603ZM-GU603ZM:~/Documents/png_to_klg/build$ ./pngtoklg -w "$HOME/fusionlab_files/data/bag1/" -o "fusionbag1_data.klg" -t
+
+
+################## RUN ELASTIC FUSION######################
+cd Documents/ElasticFusion/build
+####IF YOU DONT WANT TO USE TUNING########
+./ElasticFusion -cal ~/fusionlab_files/data/bag1/intrinsic_params.txt -l ~/fusionlab_files/data/bag1/fusionbag1_data.klg	
+
+####IF YOU WANT TO USE TUNING(depth cutoff = 4 metres and icp weight = 99 works better. This indicates that depth component is not being utilized well)############
+./ElasticFusion -cal ~/fusionlab_files/data/bag9/intrinsic_params.txt -l ~/fusionlab_files/data/bag9/fusionbag9_data_tune.klg -i 99 -d 4
+
+
+######Do the following to generate the ultrasound text file and synchronized US and groundtruth files
+ssuryalolla@ssuryalolla-ROG-Zephyrus-M16-GU603ZM-GU603ZM:~/Documents/image_conv_ws/src$ ./gen_us_txt_file.py 
+ssuryalolla@ssuryalolla-ROG-Zephyrus-M16-GU603ZM-GU603ZM:~/Documents/image_conv_ws/src$ ./us_ts_sync.py
+
+###Command to plot the output and groundtruth trajectory (given groundtruth file and output file in the directory)###
+source ~/evo_env/bin/activate
+
+evo_traj tum $HOME/fusionlab_files/data/bag2/fusionbag2_data.klg.freiburg --ref $HOME/fusionlab_files/data/bag2/groundtruth.txt --plot --align --correct_scale
+
+
+###Command to get the error between the output and groundtruth trajectory and save stats in a zip file(given groundtruth file and output file in the directory)###
+cd fusionlab_files/data/bag7/
+
+mkdir results
+
+evo_ape tum $HOME/fusionlab_files/data/bag7/groundtruth_new.txt $HOME/fusionlab_files/data/bag7/fusionbag7_data.klg.freiburg --plot --align --correct_scale --save_results $HOME/fusionlab_files/data/bag7/results/bag7_ape_crct.zip
+
+##########To get translational drift for every 5mm use the command below:#############
+
+##WITHOUT SCALE CORRECTION - AVERAGE AND BELOW AVERAGE RESULTS 
+evo_rpe tum $HOME/fusionlab_files/data/bag5/groundtruth.txt $HOME/fusionlab_files/data/bag5/fusionbag5_data.klg.freiburg --pose_relation trans_part --delta 0.005 --delta_unit m --plot --align --save_results $HOME/fusionlab_files/data/bag5/results/bag5_rpe_results.zip
+
+##WITH SCALE CORRECTION - EXCELLENT RESULTS 
+evo_rpe tum $HOME/fusionlab_files/data/bag9/groundtruth_new.txt $HOME/fusionlab_files/data/bag9/fusionbag9_data.klg.freiburg --pose_relation trans_part --delta 0.005 --delta_unit m --plot --align --correct_scale --save_results $HOME/fusionlab_files/data/bag9/results/bag9_rpe_results_crct.zip
+
+###Note to modify this code while using. Use the command: (evo_env) ssuryalolla@ssuryalolla-ROG-Zephyrus-M16-GU603ZM-GU603ZM:~$ code /home/ssuryalolla/evo_env/lib/python3.10/site-packages/evo to open:
+
+
+elif self.pose_relation == PoseRelation.translation_part:
+            # self.error = np.array(
+            #     [np.linalg.norm(E_i[:3, 3]) for E_i in self.E])
+            
+            # print("RPE in x-direc")
+            # self.error = np.array([E_i[0, 3] for E_i in self.E])
+
+            print("RPE in y-direc")
+            self.error = np.array([E_i[1, 3] for E_i in self.E])
+
+            print("RPE in z-direc")
+            self.error = np.array([E_i[2, 3] for E_i in self.E])
+            
+####Note: By defining --pose_relation trans_part --delta as 0.005, am I saying that for every 5mm change in output translation say in a given time, I need error between how much it moves in the groundtruth and output ####
+
