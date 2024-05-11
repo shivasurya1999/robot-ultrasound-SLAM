@@ -15,7 +15,7 @@ For a comprehensive explanation of the methodologies employed throughout this pr
 
 This project utilizes rosbag files which can be run on Ubuntu 22.04 leveraging Docker to simulate real-world data collection and processing. The data in the rosbag file includes rgb images, depth images, groundtruth data, ultrasound images and their respective timestamps. The process for setting up, running the system, and obtaining results is fully automated. For step-by-step instructions on how to run this setup, please see:
 
-- [INSTRUCTIONS TO RUN ElasticFusion](INSTRUCTIONS%20TO%20RUN%20ElasticFusion.md)
+- [INSTRUCTIONS TO RUN ElasticFusion](INSTRUCTIONS%20TO%20RUN%20ElasticFusion)
 
 ## Trajectory Analysis with Evo Package
 
