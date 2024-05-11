@@ -22,3 +22,5 @@ This project utilizes rosbag files which can be run on Ubuntu 22.04 leveraging D
 The `evo` package is utilized for analyzing the output trajectory data obtained from the system alongside the groundtruth data. This analysis helps in validating the accuracy and effectiveness of the SLAM implementations used in the project.
 
 For more information on how to perform these analyses, refer to the instruction document linked above.
+
+![ElasticFusion Results](https://github.com/shivasurya1999/robot-ultrasound-SLAM/blob/master/6bf194d0-d419-4c69-9f6f-c78cdef0c0b8.gif?raw=true)
