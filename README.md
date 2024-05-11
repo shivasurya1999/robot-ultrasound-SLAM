@@ -5,6 +5,8 @@ Masters Capstone Project: Enhancing Robotic Ultrasound Imaging with ElasticFusio
 
 Welcome to the project repository! Here you will find the necessary information to understand, set up, and run the project. 
 
+![Experimental Setup](https://github.com/shivasurya1999/robot-ultrasound-SLAM/blob/master/US_setup_lab.jpeg?raw=true)
+
 ## Detailed Project Approach
 
 For a comprehensive explanation of the methodologies employed throughout this project, please refer to the detailed report:
